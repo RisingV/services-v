@@ -10,6 +10,7 @@ import vee.services.support.FromRemote;
  */
 public class InjectWithAnnotationExample {
 
+    //add vee.services.support.RemoteServiceAutoDeployAndInjectListener to web.xml
     //with annotation FromRemote, inject service proxy to this field, but only works when instance is a spring bean.
     @FromRemote
     private IEchoService echoService;
