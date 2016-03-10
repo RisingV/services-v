@@ -1,14 +1,16 @@
 package vee.services.support;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.aop.framework.Advised;
+import org.springframework.aop.support.AopUtils;
+import org.springframework.context.ApplicationContext;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.context.support.WebApplicationContextUtils;
 import vee.comm.GlobalConstants;
 import vee.comm.ServiceLoaderUtil;
 import vee.services.IServiceBusService;
 import vee.services.ServiceBus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationContext;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
@@ -88,15 +90,27 @@ public class RemoteServiceAutoDeployAndInjectListener implements ServletContextL
 
     private void doInject( String[] beanNames, ApplicationContext context ) {
         for ( String name : beanNames ) {
-            Object bean = context.getBean( name );
-            Class<?> beanType = bean.getClass();
-            Field[] fields = beanType.getDeclaredFields();
             try {
+                Object bean = getTargetObject( context.getBean( name ) );
+                Class<?> beanType = bean.getClass();
+                Field[] fields = beanType.getDeclaredFields();
                 injectFields( name, bean, beanType, fields );
-            } catch ( IllegalAccessException e ) {
-                log.info( "do injection failed for bean: {} ", name );
-                throw new RuntimeException( e );
+            } catch ( Exception e ) {
+                log.error( "do injection failed for bean: {} ", name );
+                throw new IllegalStateException( "do injection failed for bean:" + name,  e );
             }
+        }
+    }
+
+    private Object getTargetObject( Object proxy ) {
+        if ( AopUtils.isJdkDynamicProxy( proxy ) ) {
+            try {
+                return ( (Advised) proxy ).getTargetSource().getTarget();
+            } catch ( Exception e ) {
+                throw new IllegalStateException( "get proxied target from " + proxy.getClass().getName() + " failed.", e );
+            }
+        } else {
+            return proxy; // expected to be cglib proxy then, which is simply a specialized class
         }
     }
 
